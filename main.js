@@ -1,9 +1,18 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const async = require('async');
+const fs = require('fs');
+const util = require('util');
 
 const BASE_URL = 'http://keygenmusic.net/';
 const MAX_CONCURRENT_REQUESTS = 10;
+
+const writeFile = util.promisify(fs.writeFile);
+
+const getHomepage = async () => {
+  const res = await axios.get(BASE_URL);
+  return res.data;
+}
 
 const countSongs = async href => {
   const res = await axios.get(BASE_URL + href);
@@ -14,9 +23,30 @@ const countSongs = async href => {
 	return (tr.length - 1) / 2;
 }
 
-const getHomepage = async () => {
-  const res = await axios.get(BASE_URL);
-  return res.data;
+let pagesCount = 0;
+const getSongsHrefs = async href => {
+  const res = await axios.get(BASE_URL + href);
+	const $ = cheerio.load(res.data);
+	$.html();
+	const linkList = $('table.teamtable > tbody > tr > td.ttleft > a');
+  pagesCount = pagesCount + 1;
+  console.log(pagesCount);
+  return Array.from(linkList.map((_, a) => a.attribs.href));
+}
+
+let songCount = 0;
+let errors = [];
+const saveSong = async href => {
+  const fileName = href.split('/').slice(-1)[0];
+  try {
+    const res = await axios.get(BASE_URL + href);
+    songCount = songCount + 1;
+    console.log(songCount);
+    await writeFile('scraped_data/songs/compressed/' + fileName, res.data);
+  } catch (e) {
+    errors.push(href);
+    console.log("error downloading", href);
+  }
 }
 
 // main
@@ -31,11 +61,27 @@ const getHomepage = async () => {
     artists.map((_, a) => a.children[0].attribs.href)
   );
   hrefs = [ hrefs[1], hrefs[2], hrefs[3] ];
+  // hrefs = [ hrefs[0] ];
 
-  async.mapLimit(hrefs, MAX_CONCURRENT_REQUESTS, countSongs)
-  .then(res => {
-    console.log("OK");
-    console.log(res.reduce((a,b)=>a+b, 0));
-  })
-  .catch(console.log);
+  console.log("getting song links...")
+  let songHrefs = (await async.mapLimit(
+    hrefs, MAX_CONCURRENT_REQUESTS, getSongsHrefs
+  )).flat();
+  console.log("...gotten", songHrefs.length, "links")
+
+  console.log("downloading songs...");
+  try {
+    await async.eachLimit(songHrefs, MAX_CONCURRENT_REQUESTS, saveSong);
+  } catch (e) {
+    console.log(e);
+  }
+  console.log("...done!");
+
+  console.log("errors: ", errors)
+
+  // async.mapLimit(hrefs, MAX_CONCURRENT_REQUESTS, countSongs)
+  // .then(res => {
+  //   console.log(res.reduce((a,b)=>a+b, 0));
+  // })
+  // .catch(console.log);
 })();
