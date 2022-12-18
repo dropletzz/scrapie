@@ -39,12 +39,3 @@ const getHomepage = async () => {
   })
   .catch(console.log);
 })();
-
-// Promise.all(
-	// hrefs.map(href => axios.get(baseURL + href))
-// ).then(responses => {
-	// //console.log(responses[0]);
-	// let songCounts = responses.map(r => countSongs(r.data));
-	// let total = songCounts.reduce((a,b) => a+b, 0);
-	// console.log(total);
-// });
