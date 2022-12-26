@@ -5,8 +5,9 @@ const fs = require('fs');
 const util = require('util');
 
 const BASE_URL = 'http://keygenmusic.net/';
-const MAX_CONCURRENT_REQUESTS = 10;
+const MAX_CONCURRENT_REQUESTS = 1;
 
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const writeFile = util.promisify(fs.writeFile);
 
 const getHomepage = async () => {
@@ -47,6 +48,7 @@ const saveSong = async href => {
     errors.push(href);
     console.log("error downloading", href);
   }
+  await wait(100);
 }
 
 // main
@@ -60,7 +62,7 @@ const saveSong = async href => {
   let hrefs = Array.from(
     artists.map((_, a) => a.children[0].attribs.href)
   );
-  hrefs = [ hrefs[1], hrefs[2], hrefs[3] ];
+  // hrefs = [ hrefs[1], hrefs[2], hrefs[3] ];
   // hrefs = [ hrefs[0] ];
 
   console.log("getting song links...")
